@@ -30,6 +30,9 @@ import {
   ReportMetrics 
 } from "@/lib/store";
 
+// Module-level dedup set: prevents report_generated from re-firing on remount
+const trackedReportIds = new Set<string>();
+
 // Static Phase 1 Demo Data for review fallback
 const DEMO_SESSIONS: Session[] = [
   {
@@ -177,6 +180,19 @@ export default function ReportPage({
     setReplayTime(0);
     setReplayIsPlaying(true);
     setIsReplayOpen(true);
+
+    // Pendo Track Event: session_replay_started
+    if ((window as any).pendo) {
+      const sessionEvents = realReport?.events?.filter(e => e.sessionId === session.id) || [];
+      (window as any).pendo.track("session_replay_started", {
+        roomId,
+        sessionId: session.id,
+        testerAlias: session.testerAlias?.substring(0, 32) || "",
+        durationSeconds: session.durationSeconds,
+        completedMission: session.completedMission,
+        eventsCount: sessionEvents.length,
+      });
+    }
   };
 
   // Fetch data
@@ -199,6 +215,25 @@ export default function ReportPage({
             setActiveSessionId(report.sessions[0].id);
           }
           setStatus("found");
+
+          // Pendo Track Event: report_generated (once per roomId per session)
+          if (report && report.sessions.length > 0 && !trackedReportIds.has(roomId)) {
+            trackedReportIds.add(roomId);
+            if ((window as any).pendo) {
+              const sc = report.sessions.length;
+              (window as any).pendo.track("report_generated", {
+                roomId,
+                sessionsCount: sc,
+                completionRate: report.completionRate,
+                avgDurationSeconds: report.avgDurationSeconds,
+                confusionCount: report.confusionCount,
+                totalEvents: report.totalEvents,
+                evidenceConfidence: sc >= 5 ? "High" : sc >= 3 ? "Medium" : "Low",
+                productName: activeRoom.productName.substring(0, 64),
+                storageMode: isSupabaseConfigured() ? "supabase" : "local",
+              });
+            }
+          }
         } else {
           // If room is null, still update connection status
           setSupabaseActive(isSupabaseConfigured());
@@ -227,6 +262,16 @@ export default function ReportPage({
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const url = `${baseUrl}/r/${roomId}`;
     navigator.clipboard.writeText(url);
+
+    // Pendo Track Event: tester_link_copied
+    if ((window as any).pendo) {
+      (window as any).pendo.track("tester_link_copied", {
+        roomId,
+        testerUrl: url.substring(0, 100),
+        productName: room?.productName?.substring(0, 64) || "",
+      });
+    }
+
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };

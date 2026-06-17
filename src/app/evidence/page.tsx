@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import LoadingState from "@/components/LoadingState";
 import { 
@@ -85,6 +85,28 @@ export default function EvidencePage() {
       payloadString.includes(query)
     );
   });
+
+  // Pendo Track Event: evidence_searched (debounced 500ms after typing stops)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      if ((window as any).pendo) {
+        (window as any).pendo.track("evidence_searched", {
+          searchQuery: searchQuery.substring(0, 80),
+          activeFilter,
+          resultsCount: filteredEvents.length,
+          totalEventsCount: events.length,
+          storageMode: supabaseActive ? "supabase" : "local",
+        });
+      }
+    }, 500);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, activeFilter]);
 
   if (!isMounted || status === "loading") {
     return (

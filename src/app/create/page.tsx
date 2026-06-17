@@ -52,7 +52,19 @@ export default function CreateRoom() {
         timeLimitSeconds: parseInt(formData.timeLimit, 10) || 90,
         testerPersona: formData.instructions || "General builder launch testing."
       });
-      
+
+      // Pendo Track Event: room_created
+      if ((window as any).pendo) {
+        (window as any).pendo.track("room_created", {
+          roomId: room.id,
+          productName: formData.projectName.substring(0, 64),
+          productUrl: formData.targetUrl.substring(0, 100),
+          testerMission: formData.mission.substring(0, 80),
+          timeLimitSeconds: parseInt(formData.timeLimit, 10) || 90,
+          storageMode: supabaseActive ? "supabase" : "local",
+        });
+      }
+
       // Redirect builder directly to the tester room to check it out
       router.push(`/r/${room.id}`);
     } catch (error) {

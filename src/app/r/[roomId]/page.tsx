@@ -150,6 +150,17 @@ export default function TesterRoom({
       completedMission: false,
       feedbackText: feedbackText || "Timed out",
     }).catch((err) => console.error("Error updating session timeout:", err));
+
+    // Pendo Track Event: session_timed_out
+    if ((window as any).pendo) {
+      (window as any).pendo.track("session_timed_out", {
+        roomId: room.id,
+        sessionId,
+        timeLimitSeconds: room.timeLimitSeconds,
+        productName: room.productName.substring(0, 64),
+      });
+    }
+
     setStuck(true);
     setStuckReason("Time ran out before I could finish.");
   };
@@ -202,6 +213,18 @@ export default function TesterRoom({
           mission: room.testerMission 
         },
       });
+
+      // Pendo Track Event: mission_started
+      if ((window as any).pendo) {
+        (window as any).pendo.track("mission_started", {
+          roomId: room.id,
+          sessionId: session.id,
+          testerAlias: sessionName.substring(0, 32),
+          timeLimitSeconds: room.timeLimitSeconds,
+          productName: room.productName.substring(0, 64),
+          storageMode: supabaseActive ? "supabase" : "local",
+        });
+      }
     } catch (err) {
       console.error("Failed to start session:", err);
     }
@@ -211,6 +234,18 @@ export default function TesterRoom({
   const handleOpenTargetUrl = () => {
     if (!room) return;
     triggerEvent("system", "target_url_opened", { url: room.productUrl }, `Opened product URL in a new tab: ${room.productUrl}`);
+
+    // Pendo Track Event: target_url_opened
+    if ((window as any).pendo) {
+      (window as any).pendo.track("target_url_opened", {
+        roomId: room.id,
+        sessionId: sessionId || "",
+        targetUrl: room.productUrl.substring(0, 100),
+        productName: room.productName.substring(0, 64),
+        elapsedTime: room.timeLimitSeconds - timeLeft,
+      });
+    }
+
     window.open(room.productUrl, "_blank");
   };
 
@@ -234,6 +269,18 @@ export default function TesterRoom({
       confusionReason: confusionText 
     }).catch(err => console.error(err));
     triggerEvent("error", "confusion_reported", { reason: confusionText }, `Confusion reported: "${confusionText}"`);
+
+    // Pendo Track Event: confusion_reported
+    if ((window as any).pendo) {
+      (window as any).pendo.track("confusion_reported", {
+        roomId: room?.id || roomId,
+        sessionId,
+        confusionReason: confusionText.substring(0, 80),
+        productName: room?.productName?.substring(0, 64) || "",
+        elapsedTime: room ? room.timeLimitSeconds - timeLeft : 0,
+      });
+    }
+
     setShowConfusionText(false);
   };
 
@@ -256,6 +303,19 @@ export default function TesterRoom({
         eventName: "mission_completed",
         eventPayload: { durationSeconds: duration, feedback: feedbackText },
       });
+
+      // Pendo Track Event: mission_completed
+      if ((window as any).pendo) {
+        (window as any).pendo.track("mission_completed", {
+          roomId: room.id,
+          sessionId,
+          durationSeconds: duration,
+          timeLimitSeconds: room.timeLimitSeconds,
+          feedbackText: feedbackText?.substring(0, 80) || "",
+          understoodValue: understood,
+          productName: room.productName.substring(0, 64),
+        });
+      }
 
       setCompleted(true);
       router.push(`/report/${room.id}`);
@@ -287,6 +347,19 @@ export default function TesterRoom({
         eventPayload: { durationSeconds: duration, reason: stuckReason, feedback: feedbackText },
       });
 
+      // Pendo Track Event: mission_aborted
+      if ((window as any).pendo) {
+        (window as any).pendo.track("mission_aborted", {
+          roomId: room.id,
+          sessionId,
+          durationSeconds: duration,
+          timeLimitSeconds: room.timeLimitSeconds,
+          stuckReason: (stuckReason || "").substring(0, 80),
+          feedbackText: feedbackText?.substring(0, 80) || "",
+          productName: room.productName.substring(0, 64),
+        });
+      }
+
       router.push(`/report/${room.id}`);
     } catch (err) {
       console.error("Error submitting stuck feedback:", err);
@@ -311,6 +384,19 @@ export default function TesterRoom({
           { element, x: Math.round(e.clientX), y: Math.round(e.clientY) },
           `Rage clicks detected on [${element}]`
         );
+
+        // Pendo Track Event: rage_clicks_detected
+        if ((window as any).pendo) {
+          (window as any).pendo.track("rage_clicks_detected", {
+            roomId: room?.id || roomId,
+            sessionId: sessionId || "",
+            element: element.substring(0, 64),
+            clickX: Math.round(e.clientX),
+            clickY: Math.round(e.clientY),
+            productName: room?.productName?.substring(0, 64) || "",
+          });
+        }
+
         rageClicksRef.current = 0;
       }
     } else {
@@ -328,12 +414,24 @@ export default function TesterRoom({
   const handleCouponSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     triggerEvent("input", "sandbox_input", { couponApplied: couponCode }, `Entered coupon code: "${couponCode}"`);
-    if (couponCode.toUpperCase() === "WELCOME10") {
+    const isValid = couponCode.toUpperCase() === "WELCOME10";
+    if (isValid) {
       triggerEvent("system", "sandbox_coupon_success", { code: "WELCOME10" }, "Coupon 'WELCOME10' applied successfully!");
       alert("Coupon 'WELCOME10' applied! Check your cart discount.");
     } else {
       triggerEvent("error", "sandbox_coupon_error", { invalidCode: couponCode }, `Invalid coupon code attempt: "${couponCode}"`);
       alert("Invalid coupon code.");
+    }
+
+    // Pendo Track Event: coupon_code_submitted
+    if ((window as any).pendo) {
+      (window as any).pendo.track("coupon_code_submitted", {
+        roomId: room?.id || roomId,
+        sessionId: sessionId || "",
+        couponCode: couponCode.substring(0, 32),
+        isValid,
+        productName: room?.productName?.substring(0, 64) || "",
+      });
     }
   };
 
@@ -347,6 +445,18 @@ export default function TesterRoom({
       setIsProcessingCheckout(false);
       setCheckoutError("Error: API request timed out (504 Gateway Timeout). Please try again.");
       triggerEvent("error", "sandbox_checkout_timeout", { code: 504 }, "POST /api/checkout - 504 Gateway Timeout");
+
+      // Pendo Track Event: sandbox_checkout_attempted
+      if ((window as any).pendo) {
+        (window as any).pendo.track("sandbox_checkout_attempted", {
+          roomId: room?.id || roomId,
+          sessionId: sessionId || "",
+          cartCount,
+          cartTotal: 149 * cartCount,
+          errorCode: 504,
+          productName: room?.productName?.substring(0, 64) || "",
+        });
+      }
     }, 1200);
   };
 
@@ -793,6 +903,15 @@ export default function TesterRoom({
                   onClick={() => {
                     handleToggleUnderstood(true);
                     triggerEvent("system", "reaction_value_found", { understoodValue: true }, "Reaction: Found the main value proposition");
+                    if ((window as any).pendo) {
+                      (window as any).pendo.track("tester_reaction_submitted", {
+                        roomId: room.id,
+                        sessionId: sessionId || "",
+                        reactionType: "value_found",
+                        productName: room.productName.substring(0, 64),
+                        elapsedTime: room.timeLimitSeconds - timeLeft,
+                      });
+                    }
                   }}
                   className="flex items-center space-x-2.5 rounded-lg border border-zinc-900 bg-zinc-950 hover:bg-zinc-900/65 px-4 py-3 text-left text-xs font-medium text-zinc-200 transition-colors"
                 >
@@ -808,6 +927,15 @@ export default function TesterRoom({
                   onClick={() => {
                     if (sessionId) updateSession(sessionId, { clickedExpectedAction: true });
                     triggerEvent("click", "reaction_cta_found", { clickedExpectedAction: true }, "Reaction: Found the expected Call to Action");
+                    if ((window as any).pendo) {
+                      (window as any).pendo.track("tester_reaction_submitted", {
+                        roomId: room.id,
+                        sessionId: sessionId || "",
+                        reactionType: "cta_found",
+                        productName: room.productName.substring(0, 64),
+                        elapsedTime: room.timeLimitSeconds - timeLeft,
+                      });
+                    }
                   }}
                   className="flex items-center space-x-2.5 rounded-lg border border-zinc-900 bg-zinc-950 hover:bg-zinc-900/65 px-4 py-3 text-left text-xs font-medium text-zinc-200 transition-colors"
                 >
@@ -823,6 +951,15 @@ export default function TesterRoom({
                   onClick={() => {
                     if (sessionId) updateSession(sessionId, { couldNotFindCta: true });
                     triggerEvent("error", "reaction_cta_missing", {}, "Reaction: Could not find the Call to Action");
+                    if ((window as any).pendo) {
+                      (window as any).pendo.track("tester_reaction_submitted", {
+                        roomId: room.id,
+                        sessionId: sessionId || "",
+                        reactionType: "cta_missing",
+                        productName: room.productName.substring(0, 64),
+                        elapsedTime: room.timeLimitSeconds - timeLeft,
+                      });
+                    }
                   }}
                   className="flex items-center space-x-2.5 rounded-lg border border-zinc-900 bg-zinc-950 hover:bg-zinc-900/65 px-4 py-3 text-left text-xs font-medium text-zinc-200 transition-colors"
                 >
@@ -838,6 +975,15 @@ export default function TesterRoom({
                   onClick={() => {
                     if (sessionId) updateSession(sessionId, { offerUnclear: true });
                     triggerEvent("error", "reaction_offer_unclear", {}, "Reaction: The offer/pricing is unclear");
+                    if ((window as any).pendo) {
+                      (window as any).pendo.track("tester_reaction_submitted", {
+                        roomId: room.id,
+                        sessionId: sessionId || "",
+                        reactionType: "offer_unclear",
+                        productName: room.productName.substring(0, 64),
+                        elapsedTime: room.timeLimitSeconds - timeLeft,
+                      });
+                    }
                   }}
                   className="flex items-center space-x-2.5 rounded-lg border border-zinc-900 bg-zinc-950 hover:bg-zinc-900/65 px-4 py-3 text-left text-xs font-medium text-zinc-200 transition-colors"
                 >
@@ -853,6 +999,15 @@ export default function TesterRoom({
                   onClick={() => {
                     if (sessionId) updateSession(sessionId, { pageTrustworthy: true });
                     triggerEvent("system", "reaction_trustworthy", { trust: "high" }, "Reaction: The page feels trustworthy");
+                    if ((window as any).pendo) {
+                      (window as any).pendo.track("tester_reaction_submitted", {
+                        roomId: room.id,
+                        sessionId: sessionId || "",
+                        reactionType: "trustworthy",
+                        productName: room.productName.substring(0, 64),
+                        elapsedTime: room.timeLimitSeconds - timeLeft,
+                      });
+                    }
                   }}
                   className="flex items-center space-x-2.5 rounded-lg border border-zinc-900 bg-zinc-950 hover:bg-zinc-900/65 px-4 py-3 text-left text-xs font-medium text-zinc-200 transition-colors"
                 >
@@ -868,6 +1023,15 @@ export default function TesterRoom({
                   onClick={() => {
                     if (sessionId) updateSession(sessionId, { pageNotTrustworthy: true });
                     triggerEvent("error", "reaction_untrustworthy", { trust: "low" }, "Reaction: The page does not feel trustworthy");
+                    if ((window as any).pendo) {
+                      (window as any).pendo.track("tester_reaction_submitted", {
+                        roomId: room.id,
+                        sessionId: sessionId || "",
+                        reactionType: "untrustworthy",
+                        productName: room.productName.substring(0, 64),
+                        elapsedTime: room.timeLimitSeconds - timeLeft,
+                      });
+                    }
                   }}
                   className="flex items-center space-x-2.5 rounded-lg border border-zinc-900 bg-zinc-950 hover:bg-zinc-900/65 px-4 py-3 text-left text-xs font-medium text-zinc-200 transition-colors"
                 >

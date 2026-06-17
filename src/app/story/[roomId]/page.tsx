@@ -29,6 +29,9 @@ import {
   ReportMetrics 
 } from "@/lib/store";
 
+// Module-level dedup set: prevents story_generated from re-firing on remount
+const trackedStoryIds = new Set<string>();
+
 // Static Demo data for empty reports preview
 const DEMO_SESSIONS: Session[] = [
   {
@@ -136,6 +139,20 @@ export default function SignalStoryPage({
     setReplayTime(0);
     setReplayIsPlaying(true);
     setIsReplayOpen(true);
+
+    // Pendo Track Event: story_replay_started
+    if ((window as any).pendo) {
+      const sessionEvents = realReport?.events?.filter(e => e.sessionId === session.id) || [];
+      (window as any).pendo.track("story_replay_started", {
+        roomId,
+        sessionId: session.id,
+        testerAlias: session.testerAlias?.substring(0, 32) || "",
+        durationSeconds: session.durationSeconds,
+        completedMission: session.completedMission,
+        eventsCount: sessionEvents.length,
+        isStrongestSession: session.id === strongestSession?.id,
+      });
+    }
   };
 
   useEffect(() => {
@@ -156,6 +173,24 @@ export default function SignalStoryPage({
           setRealReport(report);
           setSupabaseActive(isSupabaseConfigured());
           setStatus("found");
+
+          // Pendo Track Event: story_generated (once per roomId per session)
+          if (report && report.sessions.length > 0 && !trackedStoryIds.has(roomId)) {
+            trackedStoryIds.add(roomId);
+            if ((window as any).pendo) {
+              const sc = report.sessions.length;
+              (window as any).pendo.track("story_generated", {
+                roomId,
+                sessionsCount: sc,
+                completionRate: report.completionRate,
+                confusionCount: report.confusionCount,
+                totalEvents: report.totalEvents,
+                evidenceConfidence: sc >= 5 ? "High" : sc >= 3 ? "Medium" : "Low",
+                productName: activeRoom.productName.substring(0, 64),
+                storageMode: isSupabaseConfigured() ? "supabase" : "local",
+              });
+            }
+          }
         } else {
           setSupabaseActive(isSupabaseConfigured());
           setStatus("not_found");
@@ -174,6 +209,16 @@ export default function SignalStoryPage({
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const url = `${baseUrl}/story/${roomId}`;
     navigator.clipboard.writeText(url);
+
+    // Pendo Track Event: story_link_copied
+    if ((window as any).pendo) {
+      (window as any).pendo.track("story_link_copied", {
+        roomId,
+        storyUrl: url.substring(0, 100),
+        productName: room?.productName?.substring(0, 64) || "",
+      });
+    }
+
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
@@ -471,13 +516,28 @@ export default function SignalStoryPage({
       generatedAt: new Date().toISOString()
     };
     
+    const fileName = `signal_story_${roomId}.json`;
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `signal_story_${roomId}.json`);
+    downloadAnchor.setAttribute("download", fileName);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+
+    // Pendo Track Event: story_json_exported
+    if ((window as any).pendo) {
+      (window as any).pendo.track("story_json_exported", {
+        roomId,
+        sessionsCount,
+        completionRate,
+        totalEvents: activeReport.totalEvents,
+        evidenceConfidence: confidenceValue,
+        decisionTitle: decisionTitle.substring(0, 64),
+        productName: room?.productName?.substring(0, 64) || "",
+        fileName,
+      });
+    }
   };
 
   return (
