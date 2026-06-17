@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import LoadingState from "@/components/LoadingState";
 import { 
   MousePointer, 
   Search, 
@@ -24,6 +25,7 @@ export default function EvidencePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"All" | "Session" | "Click" | "Friction" | "Understanding" | "Completion">("All");
   const [supabaseActive, setSupabaseActive] = useState(true);
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
 
   useEffect(() => {
     setIsMounted(true);
@@ -32,12 +34,15 @@ export default function EvidencePage() {
 
   useEffect(() => {
     if (!isMounted) return;
+    setStatus("loading");
     getAllEvents().then((data) => {
       setEvents(data);
       setSupabaseActive(isSupabaseConfigured());
+      setStatus("loaded");
     }).catch((err) => {
       console.error("Failed to load events from store:", err);
       setSupabaseActive(isSupabaseConfigured());
+      setStatus("error");
     });
   }, [isMounted]);
 
@@ -81,11 +86,50 @@ export default function EvidencePage() {
     );
   });
 
-  if (!isMounted) {
+  if (!isMounted || status === "loading") {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background text-zinc-400">
-        <Activity className="h-6 w-6 animate-spin text-indigo-500 mr-2" />
-        <span>Loading Evidence Stream...</span>
+      <LoadingState 
+        type="evidence" 
+        title="Loading evidence feed..." 
+        subtitle="Fetching shared Supabase telemetry events." 
+      />
+    );
+  }
+
+  // Error State
+  if (status === "error") {
+    return (
+      <div className="flex-1 bg-background flex flex-col items-center justify-center p-6 text-center relative isolate">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1f293710_1px,transparent_1px),linear-gradient(to_bottom,#1f293710_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <div className="max-w-md space-y-6">
+          <AlertTriangle className="h-14 w-14 text-red-500 mx-auto" />
+          <div>
+            <h2 className="text-2xl font-bold text-zinc-150">Connection Error</h2>
+            <p className="text-zinc-400 mt-2 text-sm">
+              Failed to connect to shared evidence storage. Please check your internet connection or try again.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setStatus("loading");
+                getAllEvents().then((data) => {
+                  setEvents(data);
+                  setSupabaseActive(isSupabaseConfigured());
+                  setStatus("loaded");
+                }).catch((err) => {
+                  console.error("Failed to load events from store:", err);
+                  setSupabaseActive(isSupabaseConfigured());
+                  setStatus("error");
+                });
+              }}
+              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors w-full cursor-pointer"
+            >
+              Retry Connection
+              <ArrowRight className="h-3.5 w-3.5 ml-2" />
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

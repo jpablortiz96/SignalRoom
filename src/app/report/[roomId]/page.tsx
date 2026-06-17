@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
+import LoadingState from "@/components/LoadingState";
 import { 
   ArrowLeft, 
   Activity, 
@@ -125,8 +126,7 @@ export default function ReportPage({
   // Mounting state to prevent Next.js hydration mismatch
   const [isMounted, setIsMounted] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
-  
-  // Real stats vs demo stats toggle
+  const [status, setStatus] = useState<"loading" | "found" | "not_found" | "error">("loading");
   const [useDemoData, setUseDemoData] = useState(false);
   const [realReport, setRealReport] = useState<ReportMetrics | null>(null);
   
@@ -183,22 +183,31 @@ export default function ReportPage({
   useEffect(() => {
     if (!isMounted) return;
     const fetchData = async () => {
-      const activeRoom = await getRoom(roomId);
-      if (activeRoom) {
-        setRoom(activeRoom);
-        const report = await calculateReport(roomId);
-        setRealReport(report);
-        
-        // Update connection status dynamically in case getRoom or calculateReport invoked fallback
-        setSupabaseActive(isSupabaseConfigured());
-        
-        // Default to the first session in the real report logs if available
-        if (report && report.sessions.length > 0) {
-          setActiveSessionId(report.sessions[0].id);
+      setStatus("loading");
+      try {
+        const activeRoom = await getRoom(roomId);
+        if (activeRoom) {
+          setRoom(activeRoom);
+          const report = await calculateReport(roomId);
+          setRealReport(report);
+          
+          // Update connection status dynamically in case getRoom or calculateReport invoked fallback
+          setSupabaseActive(isSupabaseConfigured());
+          
+          // Default to the first session in the real report logs if available
+          if (report && report.sessions.length > 0) {
+            setActiveSessionId(report.sessions[0].id);
+          }
+          setStatus("found");
+        } else {
+          // If room is null, still update connection status
+          setSupabaseActive(isSupabaseConfigured());
+          setStatus("not_found");
         }
-      } else {
-        // If room is null, still update connection status
+      } catch (err) {
+        console.error("Error fetching report data:", err);
         setSupabaseActive(isSupabaseConfigured());
+        setStatus("error");
       }
     };
     fetchData();
@@ -222,17 +231,67 @@ export default function ReportPage({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  if (!isMounted) {
+  if (!isMounted || status === "loading") {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background text-zinc-400">
-        <Activity className="h-6 w-6 animate-spin text-indigo-500 mr-2" />
-        <span>Loading Analytics Report...</span>
+      <LoadingState 
+        type="report" 
+        title="Reconstructing report..." 
+        subtitle="Calculating metrics from shared tester evidence." 
+      />
+    );
+  }
+
+  // Error State
+  if (status === "error") {
+    return (
+      <div className="flex-1 bg-background flex flex-col items-center justify-center p-6 text-center relative isolate">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1f293710_1px,transparent_1px),linear-gradient(to_bottom,#1f293710_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <div className="max-w-md space-y-6">
+          <AlertTriangle className="h-14 w-14 text-red-500 mx-auto" />
+          <div>
+            <h2 className="text-2xl font-bold text-zinc-150">Connection Error</h2>
+            <p className="text-zinc-400 mt-2 text-sm">
+              Failed to connect to shared evidence storage. Please check your internet connection or try again.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setStatus("loading");
+                getRoom(roomId)
+                  .then(async (activeRoom) => {
+                    if (activeRoom) {
+                      setRoom(activeRoom);
+                      const report = await calculateReport(roomId);
+                      setRealReport(report);
+                      setSupabaseActive(isSupabaseConfigured());
+                      if (report && report.sessions.length > 0) {
+                        setActiveSessionId(report.sessions[0].id);
+                      }
+                      setStatus("found");
+                    } else {
+                      setSupabaseActive(isSupabaseConfigured());
+                      setStatus("not_found");
+                    }
+                  })
+                  .catch((err) => {
+                    console.error("Error loading room:", err);
+                    setStatus("error");
+                  });
+              }}
+              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors w-full cursor-pointer"
+            >
+              Retry Connection
+              <ArrowLeft className="h-3.5 w-3.5 mr-2" />
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   // Room not found state
-  if (!room) {
+  if (status === "not_found" || !room) {
     return (
       <div className="flex-1 bg-background flex flex-col items-center justify-center p-6 text-center relative isolate">
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1f293710_1px,transparent_1px),linear-gradient(to_bottom,#1f293710_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
@@ -241,7 +300,7 @@ export default function ReportPage({
           <div>
             <h2 className="text-2xl font-bold text-zinc-150">Room Not Found</h2>
             <p className="text-zinc-400 mt-2 text-sm">
-              The launch room with ID <strong className="text-zinc-200 uppercase">&quot;{roomId}&quot;</strong> does not exist in local storage database.
+              The launch room with ID <strong className="text-zinc-200 uppercase">&quot;{roomId}&quot;</strong> could not be found in shared evidence storage.
             </p>
           </div>
           <div className="pt-2">

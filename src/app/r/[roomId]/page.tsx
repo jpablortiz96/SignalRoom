@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import LoadingState from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { 
   Play, 
@@ -46,6 +47,7 @@ export default function TesterRoom({
   // Mounting state to prevent Next.js hydration mismatch
   const [isMounted, setIsMounted] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
+  const [status, setStatus] = useState<"loading" | "found" | "not_found" | "error">("loading");
 
   // Tester Identity
   const [testerAlias, setTesterAlias] = useState("");
@@ -89,15 +91,24 @@ export default function TesterRoom({
   // 2. Fetch room data from store on mount
   useEffect(() => {
     if (!isMounted) return;
-    getRoom(roomId).then((activeRoom) => {
-      if (activeRoom) {
-        setRoom(activeRoom);
-        setTimeLeft(activeRoom.timeLimitSeconds);
-        setUiLogs([
-          { time: "00:00", type: "system", message: `Joined launch room: ${activeRoom.id}` }
-        ]);
-      }
-    });
+    setStatus("loading");
+    getRoom(roomId)
+      .then((activeRoom) => {
+        if (activeRoom) {
+          setRoom(activeRoom);
+          setTimeLeft(activeRoom.timeLimitSeconds);
+          setUiLogs([
+            { time: "00:00", type: "system", message: `Joined launch room: ${activeRoom.id}` }
+          ]);
+          setStatus("found");
+        } else {
+          setStatus("not_found");
+        }
+      })
+      .catch((err) => {
+        console.error("Error loading room:", err);
+        setStatus("error");
+      });
   }, [isMounted, roomId]);
 
   const formatTime = (seconds: number) => {
@@ -340,17 +351,64 @@ export default function TesterRoom({
   };
 
   // Loading state during SSR hook synchronization
-  if (!isMounted) {
+  if (!isMounted || status === "loading") {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background text-zinc-400">
-        <Activity className="h-6 w-6 animate-spin text-indigo-500 mr-2" />
-        <span>Loading Signal Room...</span>
+      <LoadingState 
+        type="room" 
+        title="Preparing launch trial..." 
+        subtitle="Fetching mission details and telemetry workspace." 
+      />
+    );
+  }
+
+  // Error State
+  if (status === "error") {
+    return (
+      <div className="flex-1 bg-background flex flex-col items-center justify-center p-6 text-center relative isolate">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1f293710_1px,transparent_1px),linear-gradient(to_bottom,#1f293710_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <div className="max-w-md space-y-6">
+          <AlertTriangle className="h-14 w-14 text-red-500 mx-auto" />
+          <div>
+            <h2 className="text-2xl font-bold text-zinc-150">Connection Error</h2>
+            <p className="text-zinc-400 mt-2 text-sm">
+              Failed to connect to shared evidence storage. Please check your internet connection or try again.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setStatus("loading");
+                getRoom(roomId)
+                  .then((activeRoom) => {
+                    if (activeRoom) {
+                      setRoom(activeRoom);
+                      setTimeLeft(activeRoom.timeLimitSeconds);
+                      setUiLogs([
+                        { time: "00:00", type: "system", message: `Joined launch room: ${activeRoom.id}` }
+                      ]);
+                      setStatus("found");
+                    } else {
+                      setStatus("not_found");
+                    }
+                  })
+                  .catch((err) => {
+                    console.error("Error loading room:", err);
+                    setStatus("error");
+                  });
+              }}
+              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors w-full cursor-pointer"
+            >
+              Retry Connection
+              <RefreshCw className="h-3.5 w-3.5 ml-2 animate-spin-slow" />
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   // Not Found State
-  if (!room) {
+  if (status === "not_found" || !room) {
     return (
       <div className="flex-1 bg-background flex flex-col items-center justify-center p-6 text-center relative isolate">
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1f293710_1px,transparent_1px),linear-gradient(to_bottom,#1f293710_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
@@ -359,7 +417,7 @@ export default function TesterRoom({
           <div>
             <h2 className="text-2xl font-bold text-zinc-150">Room Not Found</h2>
             <p className="text-zinc-400 mt-2 text-sm">
-              The launch room with ID <strong className="text-zinc-200 uppercase">&quot;{roomId}&quot;</strong> does not exist in local storage database.
+              The launch room with ID <strong className="text-zinc-200 uppercase">&quot;{roomId}&quot;</strong> could not be found in shared evidence storage.
             </p>
           </div>
           <div className="pt-2">
