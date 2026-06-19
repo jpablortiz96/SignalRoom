@@ -19,7 +19,8 @@ import {
   Shield,
   X,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  Compass
 } from "lucide-react";
 import { 
   getRoom, 
@@ -27,98 +28,13 @@ import {
   isSupabaseConfigured,
   Room, 
   Session, 
-  TelemetryEvent,
   ReportMetrics 
 } from "@/lib/store";
 
 // Module-level dedup set: prevents report_generated from re-firing on remount
 const trackedReportIds = new Set<string>();
 
-// Static Phase 1 Demo Data for review fallback
-const DEMO_SESSIONS: Session[] = [
-  {
-    id: "SR-052",
-    roomId: "DEMO",
-    testerAlias: "Elena Vance",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 54,
-    completedMission: false,
-    understoodValue: true,
-    clickedExpectedAction: false,
-    confusionReported: true,
-    confusionReason: "Checkout API call returned a gateway timeout error. The purchase spinner wouldn't resolve.",
-    feedbackText: "Tried completing the order three times. Payment processing spinner ran forever and finally timed out."
-  },
-  {
-    id: "SR-041",
-    roomId: "DEMO",
-    testerAlias: "Marcus Broadus",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 68,
-    completedMission: true,
-    understoodValue: true,
-    clickedExpectedAction: true,
-    confusionReported: false,
-    confusionReason: "",
-    feedbackText: "Awesome checkout flow! The 10% coupon worked instantly when I keyed in WELCOME10."
-  },
-  {
-    id: "SR-033",
-    roomId: "DEMO",
-    testerAlias: "Chloe Frazer",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 79,
-    completedMission: false,
-    understoodValue: false,
-    clickedExpectedAction: false,
-    confusionReported: true,
-    confusionReason: "The coupon field kept rejecting 'WELCOME' because I didn't know the exact coupon code.",
-    feedbackText: "I could not find the discount code anywhere. I got stuck trying to guess the coupon word."
-  },
-  {
-    id: "SR-018",
-    roomId: "DEMO",
-    testerAlias: "Nate Drake",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 84,
-    completedMission: true,
-    understoodValue: true,
-    clickedExpectedAction: true,
-    confusionReported: false,
-    confusionReason: "",
-    feedbackText: "Successfully ordered the keyboard. Took a bit long to compute total discounts, but it went through."
-  },
-  {
-    id: "SR-009",
-    roomId: "DEMO",
-    testerAlias: "Sully Sullivan",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 41,
-    completedMission: false,
-    understoodValue: true,
-    clickedExpectedAction: false,
-    confusionReported: false,
-    confusionReason: "",
-    feedbackText: "Checkout spinner was lagging. Didn't want to wait 90 seconds so I closed the page."
-  }
-];
-
-const DEMO_EVENTS: TelemetryEvent[] = [
-  { id: "e1", roomId: "DEMO", sessionId: "SR-052", eventName: "mission_started", eventPayload: {}, createdAt: "2026-06-17T10:00:00Z" },
-  { id: "e2", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_click", eventPayload: { element: "Button: Add Premium Keyboard to Cart" }, createdAt: "2026-06-17T10:00:12Z" },
-  { id: "e3", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_click", eventPayload: { element: "Nav: View Cart" }, createdAt: "2026-06-17T10:00:15Z" },
-  { id: "e4", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_input", eventPayload: { couponApplied: "WELCOME10" }, createdAt: "2026-06-17T10:00:22Z" },
-  { id: "e5", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_click", eventPayload: { element: "Button: Proceed to Checkout" }, createdAt: "2026-06-17T10:00:28Z" },
-  { id: "e6", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_checkout_submit", eventPayload: {}, createdAt: "2026-06-17T10:00:32Z" },
-  { id: "e7", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_checkout_timeout", eventPayload: { code: 504 }, createdAt: "2026-06-17T10:00:33Z" },
-  { id: "e8", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_rage_clicks", eventPayload: { element: "Button: Complete Purchase" }, createdAt: "2026-06-17T10:00:40Z" },
-  { id: "e9", roomId: "DEMO", sessionId: "SR-052", eventName: "mission_aborted", eventPayload: { reason: "Spinner failed" }, createdAt: "2026-06-17T10:00:54Z" }
-];
+// No static demo datasets
 
 export default function ReportPage({
   params,
@@ -131,7 +47,6 @@ export default function ReportPage({
   const [isMounted, setIsMounted] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [status, setStatus] = useState<"loading" | "found" | "not_found" | "error">("loading");
-  const [useDemoData, setUseDemoData] = useState(false);
   const [realReport, setRealReport] = useState<ReportMetrics | null>(null);
   
   // Tab selector inside timeline
@@ -277,12 +192,10 @@ export default function ReportPage({
 
   // Handle fallback selector
   useEffect(() => {
-    if (useDemoData) {
-      setActiveSessionId("SR-052");
-    } else if (realReport && realReport.sessions.length > 0) {
+    if (realReport && realReport.sessions.length > 0) {
       setActiveSessionId(realReport.sessions[0].id);
     }
-  }, [useDemoData, realReport]);
+  }, [realReport]);
 
   const copyTesterLink = () => {
     if (typeof window === "undefined") return;
@@ -389,21 +302,17 @@ export default function ReportPage({
 
   // Determine active report values
   const hasRealData = realReport && realReport.sessions.length > 0;
-  const activeReport: ReportMetrics = (useDemoData || !hasRealData)
-    ? {
-        completionRate: 40,
-        avgDurationSeconds: 73,
-        confusionCount: 2,
-        totalEvents: DEMO_EVENTS.length,
-        sessions: DEMO_SESSIONS,
-        events: DEMO_EVENTS,
-        feedback: DEMO_SESSIONS.filter((s) => s.feedbackText !== "").map((s) => ({
-          alias: s.testerAlias,
-          text: s.feedbackText,
-          completed: s.completedMission,
-        })),
-      }
-    : realReport!;
+  const activeReport: ReportMetrics = hasRealData
+    ? realReport!
+    : {
+        completionRate: 0,
+        avgDurationSeconds: 0,
+        confusionCount: 0,
+        totalEvents: 0,
+        sessions: [],
+        events: [],
+        feedback: [],
+      };
 
   const activeSession = activeReport.sessions.find((s) => s.id === activeSessionId) || activeReport.sessions[0];
   const sessionEvents = activeReport.events.filter((e) => e.sessionId === activeSessionId);
@@ -570,38 +479,11 @@ export default function ReportPage({
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start space-x-3">
             <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-sm font-bold text-amber-400">Local demo mode active — evidence is stored only in this browser</h4>
+              <h4 className="text-sm font-bold text-amber-400">Local database active — evidence is stored only in this browser</h4>
               <p className="text-xs text-zinc-400 mt-1 leading-normal">
                 To enable cross-device synchronization and share results, please configure Supabase.
               </p>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Demo Warning Banner */}
-      {(useDemoData || !hasRealData) && (
-        <div className="mx-auto max-w-7xl mb-8">
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-start space-x-3">
-              <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-bold text-amber-400">Sample Demo Data — Not real user evidence</h4>
-                <p className="text-xs text-zinc-400 mt-0.5 leading-normal">
-                  {!hasRealData 
-                    ? "No real tester sessions captured yet for this room. We are showing mock sample data for illustration." 
-                    : "You are currently viewing static sample data instead of your real telemetry feed."}
-                </p>
-              </div>
-            </div>
-            {hasRealData && (
-              <button
-                onClick={() => setUseDemoData(false)}
-                className="shrink-0 rounded bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-bold text-amber-400 px-3 py-1.5 transition-colors uppercase"
-              >
-                Switch to Real Data
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -625,10 +507,10 @@ export default function ReportPage({
             <h1 className="text-3xl font-extrabold tracking-tight text-zinc-100 mt-2">
               {room.productName} Report
             </h1>
-            <p className="text-sm text-zinc-400 mt-1">
+            <p className="text-xs text-zinc-400 mt-2">
               {supabaseActive
                 ? "Launch report computed from shared Supabase evidence captured across tester sessions."
-                : "Local demo mode active — report computed from this browser only."}
+                : "Local database active — report computed from this browser only."}
             </p>
           </div>
 
@@ -676,8 +558,8 @@ export default function ReportPage({
           </Link>
         </div>
 
-        {/* Empty State when no real sessions exist and toggle not clicked */}
-        {!hasRealData && !useDemoData ? (
+        {/* Empty State when no real sessions exist */}
+        {!hasRealData ? (
           <div className="rounded-xl border border-zinc-900 bg-zinc-950/20 py-16 px-6 text-center space-y-6">
             <Users className="h-12 w-12 text-zinc-700 mx-auto" />
             <div className="max-w-md mx-auto space-y-2">
@@ -687,18 +569,12 @@ export default function ReportPage({
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-sm mx-auto pt-2">
+            <div className="flex items-center justify-center gap-4 max-w-xs mx-auto pt-2">
               <button
                 onClick={copyTesterLink}
                 className="w-full flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors"
               >
                 Copy Tester Link
-              </button>
-              <button
-                onClick={() => setUseDemoData(true)}
-                className="w-full flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-900 transition-colors"
-              >
-                Preview with Demo Data
               </button>
             </div>
           </div>
@@ -893,6 +769,90 @@ export default function ReportPage({
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+
+            {/* Next actions from this evidence */}
+            <div className="mb-10 rounded-xl border border-indigo-500/10 bg-indigo-500/5 p-6 space-y-4">
+              <div className="flex items-center space-x-2 text-indigo-400">
+                <Compass className="h-5 w-5" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">Next actions from this evidence</h3>
+              </div>
+              <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+                Use these dynamic diagnostic workflows to inspect specific behavior patterns, share telemetry data, or reconstruct the user session timeline.
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                {/* Action 1: Open Signal Story */}
+                <Link
+                  href={`/story/${roomId}`}
+                  onClick={() => trackSignalRoomEvent("signal_story_cta_clicked", { roomId })}
+                  className="flex flex-col justify-between p-4 rounded-lg border border-zinc-900 bg-zinc-950 hover:border-indigo-500/30 transition-all text-left group"
+                >
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 transition-colors">Open Signal Story</h4>
+                    <p className="text-[10px] text-zinc-500 mt-1 leading-normal">
+                      Analyze a narrative behavioral reconstruction of the user sessions.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-indigo-400 flex items-center gap-1 mt-3 font-sans">
+                    Launch Story <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </Link>
+
+                {/* Action 2: Replay a session */}
+                <button
+                  onClick={() => {
+                    if (activeSession) {
+                      openReplay(activeSession);
+                    } else if (activeReport.sessions.length > 0) {
+                      openReplay(activeReport.sessions[0]);
+                    }
+                  }}
+                  className="flex flex-col justify-between p-4 rounded-lg border border-zinc-900 bg-zinc-950 hover:border-indigo-500/30 transition-all text-left group cursor-pointer"
+                >
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 transition-colors">Replay a Session</h4>
+                    <p className="text-[10px] text-zinc-500 mt-1 leading-normal">
+                      Review a step-by-step interactive playback of telemetry actions.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-indigo-400 flex items-center gap-1 mt-3 font-sans">
+                    Open Replay <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </button>
+
+                {/* Action 3: Copy Tester Link */}
+                <button
+                  onClick={copyTesterLink}
+                  className="flex flex-col justify-between p-4 rounded-lg border border-zinc-900 bg-zinc-950 hover:border-indigo-500/30 transition-all text-left group cursor-pointer font-sans"
+                >
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 transition-colors">Copy Tester Link</h4>
+                    <p className="text-[10px] text-zinc-500 mt-1 leading-normal">
+                      Share the tester portal to gather more active user telemetry.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-indigo-400 flex items-center gap-1 mt-3">
+                    {copiedLink ? "Copied!" : "Copy Link"} <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </button>
+
+                {/* Action 4: Open Evidence Feed */}
+                <Link
+                  href="/evidence"
+                  className="flex flex-col justify-between p-4 rounded-lg border border-zinc-900 bg-zinc-950 hover:border-indigo-500/30 transition-all text-left group"
+                >
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 transition-colors">Open Evidence Feed</h4>
+                    <p className="text-[10px] text-zinc-500 mt-1 leading-normal">
+                      Inspect all events and warnings logged from the testing viewport.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-indigo-400 flex items-center gap-1 mt-3 font-sans">
+                    View Feed <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </Link>
               </div>
             </div>
 

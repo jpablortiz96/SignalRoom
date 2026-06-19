@@ -545,7 +545,7 @@ export default function TesterRoom({
           <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-3 flex items-start space-x-2 shrink-0">
             <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
             <p className="text-[10px] text-zinc-400 leading-normal">
-              <strong>Local demo mode active</strong> — evidence is stored only in this browser.
+              <strong>Local persistence active</strong> — evidence is stored only in this browser.
             </p>
           </div>
         )}
@@ -1088,7 +1088,7 @@ export default function TesterRoom({
             <summary className="px-6 py-4 flex items-center justify-between text-xs font-semibold text-zinc-500 hover:text-zinc-350 cursor-pointer select-none border-b border-transparent group-open:border-zinc-900 transition-colors">
               <span className="flex items-center">
                 <ShoppingCart className="h-4 w-4 mr-2" />
-                Optional Interaction Sandbox — Sample Demo Data
+                Interactive Telemetry Sandbox
               </span>
               <span className="text-[10px] text-zinc-650 font-mono group-open:hidden">Click to Expand</span>
               <span className="text-[10px] text-zinc-650 font-mono hidden group-open:inline">Click to Collapse</span>

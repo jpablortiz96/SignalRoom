@@ -90,10 +90,13 @@ export default function CreateRoom() {
       <div className="mx-auto max-w-2xl">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">
-            Create a Launch Trial
+            Create a Real Launch Trial
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
             Define a 90-second mission for your testers. We&apos;ll capture every click, pause, and console error.
+          </p>
+          <p className="mt-1.5 text-xs text-zinc-500 max-w-md mx-auto">
+            You can test any public URL: a landing page, feature preview, waitlist, onboarding flow, or shipped product.
           </p>
         </div>
 
@@ -102,7 +105,7 @@ export default function CreateRoom() {
           <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start space-x-3">
             <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold text-amber-450 uppercase tracking-wider">Local demo mode active</h4>
+              <h4 className="text-xs font-bold text-amber-450 uppercase tracking-wider">Local database active</h4>
               <p className="text-xs text-zinc-400 mt-1 leading-normal">
                 Evidence is stored only in this browser. Configure Supabase environment variables to share evidence across real devices.
               </p>

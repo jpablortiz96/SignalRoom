@@ -8,7 +8,7 @@
 
 ### **“Don’t ask AI if your product works. Watch five real users prove where it breaks.”**
 
-SignalRoom is a high-fidelity usability telemetry environment built for modern product teams and shipped during **Mind the Product World Product Day**. It bridges the gap between shipping code and gaining product confidence by launching 90-second target-driven user trials, capturing micro-interaction friction, and feeding real-time user signals directly into the Novus analytics loop.
+SignalRoom is a high-fidelity usability telemetry environment built for modern product teams and shipped during **Mind the Product World Product Day**. It bridges the gap between shipping code and gaining product confidence by launching **real 90-second launch trials**, sending **real tester links**, capturing micro-interaction friction as **real Supabase evidence**, and feeding telemetry into Pendo's analytics engines.
 
 🔗 **Live Production Demo**: [https://signal-room-lake.vercel.app/](https://signal-room-lake.vercel.app/)
 
@@ -69,7 +69,10 @@ Once trials complete, builders inspect structured metric summaries alongside a n
 ### 📈 Novus Signals Dashboard
 Real-time events (reactions, session abandonment, and checkout completions) flow directly into the Novus dashboard, allowing teams to monitor system signals and product validation status.
 
-![Novus Signals Mockup](docs/screenshots/novus_signals.png)
+![Novus Signals Dashboard](docs/screenshots/novus_signals.png)
+
+> [!NOTE]
+> All application and dashboard screenshots above are captured directly from active live production workspaces and telemetry streams.
 
 ---
 
@@ -106,7 +109,8 @@ graph TD
 
 ### **1. Core System Components**
 * **The Client Sandbox**: Captures client-side rage clicks (multiple clicks in a short window on non-interactive regions) and tracks timing.
-* **Safe Analytics Wrapper**: Imports `src/lib/analytics/signalroomAnalytics.ts`. It acts as an abstraction layer over `window.pendo`. If the Novus/Pendo script is blocked by the user's browser, the application continues to run without crashing, falling back to local diagnostics logging.
+* **Safe Analytics Wrapper**: Imports `src/lib/analytics/signalroomAnalytics.ts`. It acts as an abstraction layer over `window.pendo`, framing Novus as the core product intelligence layer. If the Novus/Pendo script is blocked by the user's browser, the application continues to run without crashing, falling back to local diagnostics logging.
+* **Privacy-Safe Replay**: Reconstructs session flows purely from captured action event JSON telemetry (clicks, rate limits, console warnings) rather than video recordings, preserving user privacy.
 * **Supabase Bridge**: Direct query layer mapping sessions to unique rooms. If Supabase keys are missing from the configuration, the application transparently degrades to a browser-local database (`localStorage`) to guarantee uptime during local mock trials.
 
 ---
@@ -262,6 +266,13 @@ The SignalRoom integration monitors several key signals:
 * **Tester Checkout Fatigue**: Measures the count of `sandbox_checkout_attempted` events against `mission_completed` to capture form friction.
 * **Engagement Gaps**: Evaluates when testers navigate to reports (`report_viewed`) but skip reading the cinematic Signal Story (`signal_story_viewed`), identifying opportunities to improve UI summary cards.
 
+### **Production Signal Evidence**
+Novus monitored SignalRoom in production, surfaced product signals, and routed those insights into Slack so the team could act where product work already happens.
+
+| Real Novus Signals Dashboard | Real Slack Integration Alerts |
+| :---: | :---: |
+| ![Novus Signals Dashboard](docs/screenshots/novus_signals.png) | ![Slack Integration Alerts](docs/screenshots/novus_slack.png) |
+
 ---
 
 ## 🛠️ Local Development Setup
@@ -334,6 +345,7 @@ For a complete breakdown of choices and security properties, review the [LIMITAT
 * **Anonymous Rooms**: There is no authentication layer. Anyone with a copyable URL can view reports or join as a tester.
 * **RLS Setup**: Database tables are configured for public select/insert via the Supabase Anon Key to optimize for hackathon trial agility.
 * **Cross-Origin Framing**: Target URLs are evaluated using the split-screen Reaction Remote in a separate browser tab to bypass browser iframe CORS block policies.
+* **Scope & Validation Scoping**: SignalRoom is designed to diagnose direct micro-usability friction patterns. It does **not** prove market demand, validate commercial pricing, or replace full-scale qualitative user research.
 
 ---
 

@@ -33,60 +33,7 @@ import {
 // Module-level dedup set: prevents story_generated from re-firing on remount
 const trackedStoryIds = new Set<string>();
 
-// Static Demo data for empty reports preview
-const DEMO_SESSIONS: Session[] = [
-  {
-    id: "SR-052",
-    roomId: "DEMO",
-    testerAlias: "Elena Vance",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 54,
-    completedMission: false,
-    understoodValue: true,
-    clickedExpectedAction: false,
-    confusionReported: true,
-    confusionReason: "Checkout API call returned a gateway timeout error. The purchase spinner wouldn't resolve.",
-    feedbackText: "Tried completing the order three times. Payment processing spinner ran forever and finally timed out."
-  },
-  {
-    id: "SR-041",
-    roomId: "DEMO",
-    testerAlias: "Marcus Broadus",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 68,
-    completedMission: true,
-    understoodValue: true,
-    clickedExpectedAction: true,
-    confusionReported: false,
-    confusionReason: "",
-    feedbackText: "Awesome checkout flow! The 10% coupon worked instantly when I keyed in WELCOME10."
-  },
-  {
-    id: "SR-033",
-    roomId: "DEMO",
-    testerAlias: "Chloe Frazer",
-    startedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: 79,
-    completedMission: false,
-    understoodValue: false,
-    clickedExpectedAction: false,
-    confusionReported: true,
-    confusionReason: "The coupon field kept rejecting 'WELCOME' because I didn't know the exact coupon code.",
-    feedbackText: "I could not find the discount code anywhere. I got stuck trying to guess the coupon word."
-  }
-];
-
-const DEMO_EVENTS: TelemetryEvent[] = [
-  { id: "e1", roomId: "DEMO", sessionId: "SR-052", eventName: "mission_started", eventPayload: {}, createdAt: "2026-06-17T10:00:00Z" },
-  { id: "e2", roomId: "DEMO", sessionId: "SR-052", eventName: "sandbox_click", eventPayload: { element: "Button: Add Premium Keyboard to Cart" }, createdAt: "2026-06-17T10:00:12Z" },
-  { id: "e3", roomId: "DEMO", sessionId: "SR-052", eventName: "target_url_opened", eventPayload: { url: "https://example.com" }, createdAt: "2026-06-17T10:00:15Z" },
-  { id: "e4", roomId: "DEMO", sessionId: "SR-052", eventName: "reaction_cta_missing", eventPayload: {}, createdAt: "2026-06-17T10:00:30Z" },
-  { id: "e5", roomId: "DEMO", sessionId: "SR-052", eventName: "confusion_reported", eventPayload: { reason: "Timeout spinner" }, createdAt: "2026-06-17T10:00:45Z" },
-  { id: "e6", roomId: "DEMO", sessionId: "SR-052", eventName: "mission_completed", eventPayload: {}, createdAt: "2026-06-17T10:00:54Z" }
-];
+// No static demo datasets
 
 export default function SignalStoryPage({
   params,
@@ -98,7 +45,6 @@ export default function SignalStoryPage({
   // States
   const [isMounted, setIsMounted] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
-  const [useDemoData, setUseDemoData] = useState(false);
   const [status, setStatus] = useState<"loading" | "found" | "not_found" | "error">("loading");
   const [realReport, setRealReport] = useState<ReportMetrics | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -328,21 +274,17 @@ export default function SignalStoryPage({
   }
 
   const hasRealData = realReport && realReport.sessions.length > 0;
-  const activeReport: ReportMetrics = (useDemoData || !hasRealData)
-    ? {
-        completionRate: 33,
-        avgDurationSeconds: 66,
-        confusionCount: 2,
-        totalEvents: DEMO_EVENTS.length,
-        sessions: DEMO_SESSIONS,
-        events: DEMO_EVENTS,
-        feedback: DEMO_SESSIONS.filter((s) => s.feedbackText !== "").map((s) => ({
-          alias: s.testerAlias,
-          text: s.feedbackText,
-          completed: s.completedMission,
-        })),
-      }
-    : realReport!;
+  const activeReport: ReportMetrics = hasRealData
+    ? realReport!
+    : {
+        completionRate: 0,
+        avgDurationSeconds: 0,
+        confusionCount: 0,
+        totalEvents: 0,
+        sessions: [],
+        events: [],
+        feedback: [],
+      };
 
   const sessionsCount = activeReport.sessions.length;
   const completionRate = activeReport.completionRate;
@@ -586,30 +528,27 @@ export default function SignalStoryPage({
           </div>
         </div>
 
-        {/* Demo Mode Toggle Banners */}
-        {(useDemoData || !hasRealData) && (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-start space-x-3">
-              <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-bold text-amber-400">Sample Demo Data — Not real user evidence</h4>
-                <p className="text-xs text-zinc-400 mt-0.5 leading-normal">
-                  {!hasRealData 
-                    ? "No real sessions exist yet for this room. We are showing mock sample data to illustrate the storytelling narrative." 
-                    : "You are currently viewing static sample story details instead of your real telemetry feed."}
-                </p>
-              </div>
+        {!hasRealData ? (
+          <div className="rounded-xl border border-zinc-900 bg-zinc-950/20 py-16 px-6 text-center space-y-6 max-w-lg mx-auto">
+            <AlertTriangle className="h-12 w-12 text-zinc-700 mx-auto animate-pulse" />
+            <div className="max-w-md mx-auto space-y-2">
+              <h3 className="text-lg font-bold text-zinc-350">No Signal Story Available</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                A Signal Story can only be generated after real tester sessions have been recorded.
+              </p>
             </div>
-            {hasRealData && (
-              <button
-                onClick={() => setUseDemoData(false)}
-                className="shrink-0 rounded bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-bold text-amber-400 px-3 py-1.5 transition-colors uppercase"
+            
+            <div className="flex items-center justify-center gap-4 max-w-xs mx-auto pt-2">
+              <Link
+                href={`/report/${roomId}`}
+                className="w-full flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors"
               >
-                Switch to Real Data
-              </button>
-            )}
+                Go to Report
+              </Link>
+            </div>
           </div>
-        )}
+        ) : (
+          <>
 
         {/* Header Hero Section */}
         <div className="text-center space-y-3 py-4">
@@ -1074,6 +1013,8 @@ export default function SignalStoryPage({
             </div>
           </div>
         )}
+      </>
+    )}
 
       </div>
     </div>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { trackSignalRoomEvent } from "@/lib/analytics/signalroomAnalytics";
 import { 
   ArrowRight, 
-  Play, 
   Activity, 
   MousePointer, 
   Terminal, 
@@ -55,21 +54,30 @@ export default function Home() {
             SignalRoom generates a 90-second launch trial for your product. Set a mission, watch real testers navigate, and get an evidence-backed telemetry report pinpointing every friction point.
           </p>
 
-          <div className="mt-10 flex items-center justify-center gap-x-6">
-            <Link
-              href="/create"
-              className="group inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 hover:shadow-indigo-500/20"
-            >
-              Create a Launch Room
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              href="/report/demo"
-              className="inline-flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 transition-colors"
-            >
-              <Play className="mr-2 h-4 w-4 text-indigo-400 fill-indigo-400/20" />
-              Watch Demo Report
-            </Link>
+          <div className="mt-10 flex flex-col items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-x-6">
+              <Link
+                href="/create"
+                className="group inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 hover:shadow-indigo-500/20"
+              >
+                Create a Real Launch Trial
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <button
+                onClick={() => {
+                  const element = document.getElementById("why-real-users");
+                  if (element) {
+                    element.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 transition-colors cursor-pointer"
+              >
+                See How It Works
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Create a room, send a tester link, and collect evidence from real sessions.
+            </p>
           </div>
         </div>
 
@@ -81,7 +89,7 @@ export default function Home() {
                 <span className="h-3 w-3 rounded-full bg-zinc-800" />
                 <span className="h-3 w-3 rounded-full bg-zinc-800" />
                 <span className="h-3 w-3 rounded-full bg-zinc-800" />
-                <span className="text-xs text-zinc-500 font-mono ml-4">signalroom.io/r/demo-room</span>
+                <span className="text-xs text-zinc-500 font-mono ml-4">signalroom.io/r/KQ5Z6X</span>
               </div>
               <div className="flex items-center space-x-2 text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
                 <Activity className="h-3 w-3 animate-pulse mr-1" />
@@ -103,7 +111,7 @@ export default function Home() {
                       <Clock className="mt-0.5 h-3.5 w-3.5 text-zinc-500" />
                       <div>
                         <p className="text-zinc-300">User opened launch page</p>
-                        <p className="text-zinc-500 text-[10px]">url: signalroom.io/r/demo-room</p>
+                        <p className="text-zinc-500 text-[10px]">url: signalroom.io/r/KQ5Z6X</p>
                       </div>
                     </div>
                     <span className="text-zinc-500">00:01s</span>
@@ -183,7 +191,7 @@ export default function Home() {
       </div>
 
       {/* Comparison Grid */}
-      <div className="mx-auto max-w-7xl px-6 py-16 sm:py-24 lg:px-8 border-t border-zinc-900 bg-zinc-950/20">
+      <div id="why-real-users" className="mx-auto max-w-7xl px-6 py-16 sm:py-24 lg:px-8 border-t border-zinc-900 bg-zinc-950/20">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">
             Why Watch Real Users?

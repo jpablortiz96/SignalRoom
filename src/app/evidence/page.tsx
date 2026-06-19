@@ -186,7 +186,7 @@ export default function EvidencePage() {
             <p className="text-sm text-zinc-400 mt-2">
               {supabaseActive
                 ? "Real-time feed of tester actions captured as shared Supabase evidence."
-                : "Local demo mode active — evidence is stored only in this browser."}
+                : "Local database active — evidence is stored only in this browser."}
             </p>
           </div>
           <div className="shrink-0 flex items-center justify-center md:justify-end">
@@ -198,7 +198,7 @@ export default function EvidencePage() {
             ) : (
               <span className="inline-flex items-center space-x-1.5 text-xs text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 font-medium">
                 <AlertTriangle className="h-3 w-3 animate-pulse" />
-                <span>Local demo mode active — not shared across devices.</span>
+                <span>Local database active — not shared across devices.</span>
               </span>
             )}
           </div>
